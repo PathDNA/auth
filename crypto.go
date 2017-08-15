@@ -32,6 +32,9 @@ func CheckPassword(hash string, password string) bool {
 }
 
 func IsHashedPass(hash string) bool {
+	if hash == "" {
+		return false
+	}
 	cost, err := bcrypt.Cost([]byte(hash))
 	return err == nil && cost >= bcryptRounds
 }

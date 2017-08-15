@@ -14,16 +14,13 @@ func marshalUser(v turtleDB.Value) ([]byte, error) {
 	if !ok {
 		return nil, unexpectedTypeError(v)
 	}
-	if u.Password == "" {
-		return nil, ErrNoPassword
+
+	if err := u.Validate(); err != nil {
+		return nil, err
 	}
 
 	if u.ID == "" {
 		return nil, ErrNoID
-	}
-
-	if u.Status < StatusActive {
-		return nil, ErrBadStatus
 	}
 
 	if u.CreatedTS == 0 {
@@ -50,9 +47,13 @@ func EditUserTx(tx turtleDB.Txn, id string, fn func(u *User) error) (err error) 
 	}
 
 	// allow changing username
-	oldUser, oldPass := u.Username, u.Password
+	oldUser := u.Username
 	if err = fn(u); err != nil {
-		return err
+		return
+	}
+
+	if err = u.Validate(); err != nil {
+		return
 	}
 
 	if oldUser != u.Username { // username change
@@ -63,13 +64,6 @@ func EditUserTx(tx turtleDB.Txn, id string, fn func(u *User) error) (err error) 
 		loginsB.Put(u.Username, u.ID)
 	}
 
-	if oldPass != u.Password {
-		if !IsHashedPass(u.Password) {
-			if u.Password, err = HashPassword(u.Password); err != nil {
-				return
-			}
-		}
-	}
 	return usersB.Put(u.ID, u)
 }
 

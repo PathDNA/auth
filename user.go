@@ -16,6 +16,7 @@ const (
 	ErrUserNotFound  = errors.Error("user not found")
 	ErrBadStatus     = errors.Error("bad status")
 	ErrNewUserWithID = errors.Error("a new user can't have an id set")
+	ErrPlainPassword = errors.Error("plain password")
 )
 
 // Status represents different user statuses
@@ -44,6 +45,24 @@ type User struct {
 	Profile interface{} `json:"profile,omitempty"`
 }
 
+// UpdatePassword checks if the password is hashed, if not it will hash it and assign the hashed password.
+func (u *User) UpdatePassword() error {
+	if u.Password == "" {
+		return ErrNoPassword
+	}
+
+	if IsHashedPass(u.Password) {
+		return nil
+	}
+
+	p, err := HashPassword(u.Password)
+	if err == nil {
+		u.Password = p
+	}
+
+	return err
+}
+
 // Created returns the creation time of the user.
 func (u *User) Created() time.Time { return time.Unix(u.CreatedTS, 0) }
 
@@ -53,6 +72,19 @@ func (u *User) LastUpdated() time.Time { return time.Unix(u.LastUpdatedTS, 0) }
 // PasswordsMatch returns true if the current user's hashed password matches the plain-text password.
 func (u *User) PasswordsMatch(plainPassword string) bool {
 	return CheckPassword(u.Password, plainPassword)
+}
+
+func (u *User) Validate() error {
+	if u.Password == "" {
+		return ErrNoPassword
+	}
+	if !IsHashedPass(u.Password) {
+		return ErrPlainPassword
+	}
+	if u.Status < StatusActive {
+		return ErrBadStatus
+	}
+	return nil
 }
 
 // UnmarshalUser attempts to unmarshal json with the optional Profile field and returns the *User.

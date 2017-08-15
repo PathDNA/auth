@@ -62,6 +62,10 @@ func (a *Auth) CreateUser(u *User, password string) (id string, err error) {
 		return
 	}
 
+	if err = u.Validate(); err != nil {
+		return
+	}
+
 	return u.ID, a.t.Update(func(tx turtleDB.Txn) error {
 		var (
 			loginsB, _ = tx.Get("logins")
