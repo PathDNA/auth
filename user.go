@@ -50,6 +50,11 @@ func (u *User) Created() time.Time { return time.Unix(u.CreatedTS, 0) }
 // LastUpdated returns the time of the last user update.
 func (u *User) LastUpdated() time.Time { return time.Unix(u.LastUpdatedTS, 0) }
 
+// PasswordsMatch returns true if the current user's hashed password matches the plain-text password.
+func (u *User) PasswordsMatch(plainPassword string) bool {
+	return CheckPassword(u.Password, plainPassword)
+}
+
 // UnmarshalUser attempts to unmarshal json with the optional Profile field and returns the *User.
 // if profile is NOT nil, it must be a pointer.
 func UnmarshalUser(b []byte, profile interface{}) (*User, error) {

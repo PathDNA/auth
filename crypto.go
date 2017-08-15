@@ -16,7 +16,7 @@ const (
 
 	// this is a good decent default, if we need to go higher,
 	// our clients are into some shady shit and they deserve what they get.
-	bcryptRounds = 12
+	bcryptRounds = 11
 )
 
 func HashPassword(password string) (string, error) {
@@ -29,6 +29,11 @@ func HashPassword(password string) (string, error) {
 
 func CheckPassword(hash string, password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
+}
+
+func IsHashedPass(hash string) bool {
+	cost, err := bcrypt.Cost([]byte(hash))
+	return err == nil && cost >= bcryptRounds
 }
 
 func CreateMAC(password, token, salt string) string {

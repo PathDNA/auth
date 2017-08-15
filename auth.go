@@ -50,37 +50,6 @@ func (a *Auth) Close() error {
 	return a.t.Close()
 }
 
-func (a *Auth) nextID(tx turtleDB.Txn, bucket string) (string, error) {
-	b, err := tx.Get("index")
-	if err != nil {
-		return "", err
-	}
-
-	v, err := b.Get(bucket)
-	if err != nil && err != turtleDB.ErrKeyDoesNotExist {
-		return "", err
-	}
-
-	n := big.NewInt(0)
-	switch v := v.(type) {
-	case nil:
-	case string:
-		if _, ok := n.SetString(v, 10); !ok {
-			return "", unexpectedTypeError(v)
-		}
-
-	default:
-		return "", unexpectedTypeError(v)
-	}
-
-	id := n.Add(n, one).String()
-	if err = b.Put(bucket, id); err != nil {
-		return "", err
-	}
-
-	return id, nil
-}
-
 // CreateUser will add the passed user to the database and hash the given password.
 // the passed user will be modified with the hashed password and the new ID.
 func (a *Auth) CreateUser(u *User, password string) (id string, err error) {
@@ -99,7 +68,7 @@ func (a *Auth) CreateUser(u *User, password string) (id string, err error) {
 			usersB, _  = tx.Get("users")
 		)
 
-		if _, err := loginsB.Get(u.Username); err != turtleDB.ErrKeyDoesNotExist {
+		if id, _ := GetUserIDTx(tx, u.Username); id != "" {
 			return ErrUserExists
 		}
 
@@ -112,6 +81,22 @@ func (a *Auth) CreateUser(u *User, password string) (id string, err error) {
 		}
 
 		return loginsB.Put(u.Username, u.ID)
+	})
+}
+
+func (a *Auth) EditUserByID(id string, fn func(u *User) error) error {
+	return a.t.Update(func(tx turtleDB.Txn) error {
+		return EditUserTx(tx, id, fn)
+	})
+}
+
+func (a *Auth) EditUserByName(username string, fn func(u *User) error) error {
+	return a.t.Update(func(tx turtleDB.Txn) error {
+		id, err := GetUserIDTx(tx, username)
+		if err != nil {
+			return err
+		}
+		return EditUserTx(tx, id, fn)
 	})
 }
 
@@ -143,4 +128,35 @@ func (a *Auth) unmarshalUser(p []byte) (turtleDB.Value, error) {
 	}
 
 	return &u, nil
+}
+
+func (a *Auth) nextID(tx turtleDB.Txn, bucket string) (string, error) {
+	b, err := tx.Get("index")
+	if err != nil {
+		return "", err
+	}
+
+	v, err := b.Get(bucket)
+	if err != nil && err != turtleDB.ErrKeyDoesNotExist {
+		return "", err
+	}
+
+	n := big.NewInt(0)
+	switch v := v.(type) {
+	case nil:
+	case string:
+		if _, ok := n.SetString(v, 10); !ok {
+			return "", unexpectedTypeError(v)
+		}
+
+	default:
+		return "", unexpectedTypeError(v)
+	}
+
+	id := n.Add(n, one).String()
+	if err = b.Put(bucket, id); err != nil {
+		return "", err
+	}
+
+	return id, nil
 }
