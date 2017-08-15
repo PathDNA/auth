@@ -1,19 +1,19 @@
 package auth
 
 import (
-	"math/big"
+	"encoding/json"
 	"reflect"
 	"testing"
 )
 
-func TestUserAndProfile(t *testing.T) {
-	type Profile struct {
-		Name  string `json:"name,omitempty"`
-		Phone string `json:"phone,omitempty"`
-	}
+type Profile struct {
+	Name  string `json:"name,omitempty"`
+	Phone string `json:"phone,omitempty"`
+}
 
+func TestUserAndProfile(t *testing.T) {
 	u := &User{
-		ID:     big.NewInt(1),
+		ID:     "1",
 		Status: StatusActive,
 
 		Username: "gbusters",
@@ -25,7 +25,7 @@ func TestUserAndProfile(t *testing.T) {
 		},
 	}
 
-	b, err := u.MarshalJSON()
+	b, err := json.Marshal(u)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,13 +43,7 @@ func TestUserAndProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if nu.CreatedTS == 0 {
-		t.Fatal("created ts wasn't set")
-	} else {
-		nu.CreatedTS = 0 // need to be 0 for DeepEqual
-	}
-
 	if !reflect.DeepEqual(u, nu) {
-		t.Logf("u != nu\n%#+v\n%#+v", u, nu)
+		t.Errorf("u != nu\n%#+v\n%#+v", u, nu)
 	}
 }

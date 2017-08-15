@@ -1,69 +1,91 @@
 package auth
 
 import (
+	"encoding/json"
 	"math/big"
 
 	"github.com/Path94/turtleDB"
 )
 
 var (
-	buckets = &[...]string{"auth", "login", "tokens"}
-	one     = big.NewInt(1)
+	buckets = &[...]string{"users", "logins", "tokens", "index"}
+
+	one = big.NewInt(1)
 )
 
 type Auth struct {
 	t *turtleDB.Turtle
+
+	//ProfileFn is used on loading users from the database to fill in the User.Profile field.}
+	ProfileFn func() interface{}
 }
 
 func New(path string) (*Auth, error) {
-	t, err := turtleDB.New("auth", path, nil)
+	var a Auth
+	funcMap := turtleDB.NewFuncsMap(turtleDB.MarshalJSON, turtleDB.UnmarshalJSON)
+	funcMap.Put("users", marshalUser, a.unmarshalUser)
+
+	t, err := turtleDB.New("auth", path, funcMap)
 	if err != nil {
 		return nil, err
 	}
 
-	// if err = t.Update(func(tx turtleDB.Txn) error {
-	// 	for _, b := range buckets {
-	// 		if _, err := tx.Create(b); err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// 	return nil
-	// }); err != nil {
-	// 	return nil, err
-	// }
+	if err = t.Update(func(tx turtleDB.Txn) error {
+		for _, b := range buckets {
+			if _, err := tx.Create(b); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
 
-	return &Auth{t: t}, nil
+	a.t = t
+
+	return &a, nil
 }
 
-func (a *Auth) nextID(tx turtleDB.Txn, bucket string) (*big.Int, error) {
-	const idCounterKey = ":id:"
+func (a *Auth) Close() error {
+	return a.t.Close()
+}
 
-	b, err := tx.Get(bucket)
+func (a *Auth) nextID(tx turtleDB.Txn, bucket string) (string, error) {
+	b, err := tx.Get("index")
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	v, err := b.Get(idCounterKey)
+	v, err := b.Get(bucket)
 	if err != nil && err != turtleDB.ErrKeyDoesNotExist {
-		return nil, err
+		return "", err
 	}
 
-	n, _ := v.(*big.Int)
+	n := big.NewInt(0)
+	switch v := v.(type) {
+	case nil:
+	case string:
+		if _, ok := n.SetString(v, 10); !ok {
+			return "", unexpectedTypeError(v)
+		}
 
-	if n == nil {
-		n = big.NewInt(0)
+	default:
+		return "", unexpectedTypeError(v)
 	}
 
-	if err = b.Put(idCounterKey, n.Add(n, one)); err != nil {
-		return nil, err
+	id := n.Add(n, one).String()
+	if err = b.Put(bucket, id); err != nil {
+		return "", err
 	}
 
-	return n, nil
+	return id, nil
 }
 
-func (a *Auth) CreateUser(u *User, password string) (err error) {
-	if u.ID != nil {
-		return ErrNewUserWithID
+// CreateUser will add the passed user to the database and hash the given password.
+// the passed user will be modified with the hashed password and the new ID.
+func (a *Auth) CreateUser(u *User, password string) (id string, err error) {
+	if u.ID != "" {
+		return "", ErrNewUserWithID
 	}
 
 	// hash outside the db lock
@@ -71,26 +93,54 @@ func (a *Auth) CreateUser(u *User, password string) (err error) {
 		return
 	}
 
-	return a.t.Update(func(tx turtleDB.Txn) error {
+	return u.ID, a.t.Update(func(tx turtleDB.Txn) error {
 		var (
 			loginsB, _ = tx.Get("logins")
-			authB, _   = tx.Get("auth")
+			usersB, _  = tx.Get("users")
 		)
 
 		if _, err := loginsB.Get(u.Username); err != turtleDB.ErrKeyDoesNotExist {
 			return ErrUserExists
 		}
 
-		if u.ID, err = a.nextID(tx, "auth"); err != nil {
+		if u.ID, err = a.nextID(tx, "users"); err != nil {
 			return err
 		}
 
-		id := u.ID.String()
-
-		if err = authB.Put(id, u); err != nil {
+		if err = usersB.Put(u.ID, u); err != nil {
 			return err
 		}
 
-		return loginsB.Put(u.Username, id)
+		return loginsB.Put(u.Username, u.ID)
 	})
+}
+
+func (a *Auth) GetUserByID(id string) (u *User, err error) {
+	err = a.t.Read(func(tx turtleDB.Txn) error {
+		u, err = GetUserByIDTx(tx, id)
+		return err
+	})
+	return
+}
+
+func (a *Auth) GetUserByName(username string) (u *User, err error) {
+	err = a.t.Read(func(tx turtleDB.Txn) error {
+		u, err = GetUserByNameTx(tx, username)
+		return err
+	})
+	return
+}
+
+func (a *Auth) unmarshalUser(p []byte) (turtleDB.Value, error) {
+	var u User
+
+	if a.ProfileFn != nil {
+		u.Profile = a.ProfileFn()
+	}
+
+	if err := json.Unmarshal(p, &u); err != nil {
+		return nil, err
+	}
+
+	return &u, nil
 }
