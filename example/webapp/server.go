@@ -117,6 +117,7 @@ func (s *Server) checkUser(ctx *apiserv.Context) apiserv.Response {
 	if err != nil {
 		return apiserv.RespForbidden
 	}
+	u.Password = "" // the password should NOT be saved in the ctx
 	ctx.Set("user", u)
 	return nil
 }
