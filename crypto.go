@@ -2,8 +2,11 @@ package auth
 
 import (
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
+	"log"
 
 	"github.com/missionMeteora/toolkit/errors"
 	"golang.org/x/crypto/bcrypt"
@@ -48,6 +51,19 @@ func CreateMAC(password, token, salt string) string {
 func VerifyMac(mac1, password, token, salt string) bool {
 	mac2 := decodeHex(CreateMAC(password, token, salt))
 	return hmac.Equal(decodeHex(mac1), mac2)
+}
+
+// RandomToken returns a `string` crypto/rand generated token with the given length.
+// If b64 is true, it will encode it with base64.RawURLEncoding otherwise uses hex.
+func RandomToken(ln int, b64 bool) string {
+	tok := make([]byte, ln)
+	if n, _ := rand.Read(tok); n != len(tok) {
+		log.Panicf("expected %d rand bytes, got %d, something is wrong", len(tok), n)
+	}
+	if b64 {
+		return base64.RawURLEncoding.EncodeToString(tok)
+	}
+	return hex.EncodeToString(tok)
 }
 
 func decodeHex(s string) []byte {
