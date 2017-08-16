@@ -47,7 +47,7 @@ func newServer() *Server {
 		log.Panic(err)
 	}
 
-	s.a.ProfileFn = func() interface{} { return &Profile{} } // this allows proper unmarshaling of users
+	s.a.NewProfileFn(func() interface{} { return &Profile{} }) // this allows proper unmarshaling of users
 
 	s.s = apiserv.New(apiserv.SetNoCatchPanics(true))
 

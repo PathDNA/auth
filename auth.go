@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/json"
 	"math/big"
+	"sync/atomic"
 
 	"github.com/Path94/turtleDB"
 )
@@ -17,7 +18,7 @@ type Auth struct {
 	t *turtleDB.Turtle
 
 	//ProfileFn is used on loading users from the database to fill in the User.Profile field.}
-	ProfileFn func() interface{}
+	profileFn atomic.Value
 }
 
 func New(path string) (*Auth, error) {
@@ -48,6 +49,17 @@ func New(path string) (*Auth, error) {
 
 func (a *Auth) Close() error {
 	return a.t.Close()
+}
+
+// NewProfileFn is used on loading users from the database to fill in the User.Profile field.
+// it is 100% optional
+func (a *Auth) NewProfileFn(fn func() interface{}) {
+	a.profileFn.Store(fn)
+}
+
+func (a *Auth) getProfileFn() func() interface{} {
+	fn, _ := a.profileFn.Load().(func() interface{})
+	return fn
 }
 
 // CreateUser will add the passed user to the database and hash the given password.
@@ -123,8 +135,8 @@ func (a *Auth) GetUserByName(username string) (u *User, err error) {
 func (a *Auth) unmarshalUser(p []byte) (turtleDB.Value, error) {
 	var u User
 
-	if a.ProfileFn != nil {
-		u.Profile = a.ProfileFn()
+	if pfn := a.getProfileFn(); pfn != nil {
+		u.Profile = pfn()
 	}
 
 	if err := json.Unmarshal(p, &u); err != nil {

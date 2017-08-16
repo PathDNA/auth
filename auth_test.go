@@ -76,7 +76,7 @@ func TestCreateUser(t *testing.T) {
 	}
 	defer cleanupFn()
 
-	a.ProfileFn = func() interface{} { return &Profile{} }
+	a.NewProfileFn(func() interface{} { return &Profile{} })
 	u := &User{
 		Status: StatusActive,
 
