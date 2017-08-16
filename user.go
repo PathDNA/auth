@@ -8,17 +8,6 @@ import (
 	"github.com/missionMeteora/toolkit/errors"
 )
 
-const (
-	ErrProfileNotPtr = errors.Error("profile must be a pointer")
-	ErrNoPassword    = errors.Error("the password is empty")
-	ErrNoID          = errors.Error("invalid id")
-	ErrUserExists    = errors.Error("user already exists")
-	ErrUserNotFound  = errors.Error("user not found")
-	ErrBadStatus     = errors.Error("bad status")
-	ErrNewUserWithID = errors.Error("a new user can't have an id set")
-	ErrPlainPassword = errors.Error("plain password")
-)
-
 // Status represents different user statuses
 type Status int8
 
@@ -30,7 +19,7 @@ const (
 	StatusBanned
 )
 
-// User is a system user
+// User is a system user.
 type User struct {
 	ID string `json:"id,omitempty"`
 
@@ -66,14 +55,21 @@ func (u *User) UpdatePassword() error {
 // Created returns the creation time of the user.
 func (u *User) Created() time.Time { return time.Unix(u.CreatedTS, 0) }
 
-// LastUpdated returns the time of the last user update.
-func (u *User) LastUpdated() time.Time { return time.Unix(u.LastUpdatedTS, 0) }
+// LastUpdated returns the time of the last user update,
+// if it was never updated it will return the creation time.
+func (u *User) LastUpdated() time.Time {
+	if u.LastUpdatedTS == 0 {
+		return u.Created()
+	}
+	return time.Unix(u.LastUpdatedTS, 0)
+}
 
 // PasswordsMatch returns true if the current user's hashed password matches the plain-text password.
 func (u *User) PasswordsMatch(plainPassword string) bool {
 	return CheckPassword(u.Password, plainPassword)
 }
 
+// Validate checks if the User struct is valid or not.
 func (u *User) Validate() error {
 	if u.Password == "" {
 		return ErrNoPassword
@@ -86,6 +82,9 @@ func (u *User) Validate() error {
 	}
 	return nil
 }
+
+// ErrProfileNotPtr is returned froom UnmarshalUser if profle is not nil and is not a pointer.
+const ErrProfileNotPtr = errors.Error("profile must be a pointer")
 
 // UnmarshalUser attempts to unmarshal json with the optional Profile field and returns the *User.
 // if profile is NOT nil, it must be a pointer.

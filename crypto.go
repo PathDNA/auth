@@ -1,59 +1,46 @@
 package auth
 
 import (
-	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"log"
 
-	"github.com/missionMeteora/toolkit/errors"
 	"golang.org/x/crypto/bcrypt"
 )
 
 const (
-	ErrInvalidToken = errors.Error("invalid token")
-	ErrMissingId    = errors.Error("missing id")
-	ErrInvalidLogin = errors.Error("invalid login")
-
 	// this is a good decent default, if we need to go higher,
 	// our clients are into some shady shit and they deserve what they get.
-	bcryptRounds = 11
+
+	// BCryptRounds the default number of rounds passed to bcrypt.
+	BCryptRounds = 11
 )
 
+// HashPassword hashes a password using bcrypt and returns the string representation of it.
 func HashPassword(password string) (string, error) {
 	if len(password) == 0 {
-		return "", nil
+		return "", ErrNoPassword
 	}
-	h, err := bcrypt.GenerateFromPassword([]byte(password), bcryptRounds)
+	h, err := bcrypt.GenerateFromPassword([]byte(password), BCryptRounds)
 	return string(h), err
 }
 
+// CheckPassword checks a hashed password against a plain-text password.
 func CheckPassword(hash string, password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
 }
 
+// IsHashedPass checks if a password hash is a valid bcrypt hash or not.
 func IsHashedPass(hash string) bool {
 	if hash == "" {
 		return false
 	}
 	cost, err := bcrypt.Cost([]byte(hash))
-	return err == nil && cost >= bcryptRounds
+	return err == nil && cost >= BCryptRounds
 }
 
-func CreateMAC(password, token, salt string) string {
-	h := hmac.New(sha256.New, []byte(token+salt))
-	h.Write([]byte(password))
-	return hex.EncodeToString(h.Sum(nil))
-}
-
-func VerifyMac(mac1, password, token, salt string) bool {
-	mac2 := decodeHex(CreateMAC(password, token, salt))
-	return hmac.Equal(decodeHex(mac1), mac2)
-}
-
-// RandomToken returns a `string` crypto/rand generated token with the given length.
+// RandomToken returns a random `string` crypto/rand generated token with the given length.
 // If b64 is true, it will encode it with base64.RawURLEncoding otherwise uses hex.
 func RandomToken(ln int, b64 bool) string {
 	tok := make([]byte, ln)
@@ -64,12 +51,4 @@ func RandomToken(ln int, b64 bool) string {
 		return base64.RawURLEncoding.EncodeToString(tok)
 	}
 	return hex.EncodeToString(tok)
-}
-
-func decodeHex(s string) []byte {
-	b, err := hex.DecodeString(s)
-	if err != nil {
-		return nil
-	}
-	return b
 }

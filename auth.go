@@ -14,6 +14,7 @@ var (
 	one = big.NewInt(1)
 )
 
+// Auth is a generic user authentication helper.
 type Auth struct {
 	t *turtleDB.Turtle
 
@@ -21,6 +22,7 @@ type Auth struct {
 	profileFn atomic.Value
 }
 
+// New returns a new Auth db at the specificed path.
 func New(path string) (*Auth, error) {
 	var a Auth
 	funcMap := turtleDB.NewFuncsMap(turtleDB.MarshalJSON, turtleDB.UnmarshalJSON)
@@ -47,10 +49,6 @@ func New(path string) (*Auth, error) {
 	return &a, nil
 }
 
-func (a *Auth) Close() error {
-	return a.t.Close()
-}
-
 // NewProfileFn is used on loading users from the database to fill in the User.Profile field.
 // it is 100% optional
 func (a *Auth) NewProfileFn(fn func() interface{}) {
@@ -66,7 +64,8 @@ func (a *Auth) getProfileFn() func() interface{} {
 // the passed user will be modified with the hashed password and the new ID.
 func (a *Auth) CreateUser(u *User, password string) (id string, err error) {
 	if u.ID != "" {
-		return "", ErrNewUserWithID
+		err = ErrNewUserWithID
+		return
 	}
 
 	// hash outside the db lock
@@ -100,12 +99,14 @@ func (a *Auth) CreateUser(u *User, password string) (id string, err error) {
 	})
 }
 
+// EditUserByID edits a user by their ID, returning an error will cancel the edit.
 func (a *Auth) EditUserByID(id string, fn func(u *User) error) error {
 	return a.t.Update(func(tx turtleDB.Txn) error {
 		return EditUserTx(tx, id, fn)
 	})
 }
 
+// EditUserByName edits a user by their username, returning an error will cancel the edit.
 func (a *Auth) EditUserByName(username string, fn func(u *User) error) error {
 	return a.t.Update(func(tx turtleDB.Txn) error {
 		id, err := GetUserIDTx(tx, username)
@@ -116,6 +117,7 @@ func (a *Auth) EditUserByName(username string, fn func(u *User) error) error {
 	})
 }
 
+// GetUserByID returns a User by their ID.
 func (a *Auth) GetUserByID(id string) (u *User, err error) {
 	err = a.t.Read(func(tx turtleDB.Txn) error {
 		u, err = GetUserByIDTx(tx, id)
@@ -124,6 +126,7 @@ func (a *Auth) GetUserByID(id string) (u *User, err error) {
 	return
 }
 
+// GetUserByName returns a User by their UserName.
 func (a *Auth) GetUserByName(username string) (u *User, err error) {
 	err = a.t.Read(func(tx turtleDB.Txn) error {
 		u, err = GetUserByNameTx(tx, username)
@@ -132,6 +135,12 @@ func (a *Auth) GetUserByName(username string) (u *User, err error) {
 	return
 }
 
+// Close closes the underlying database.
+func (a *Auth) Close() error {
+	return a.t.Close()
+}
+
+// unmarshalUser is a helper for turtleDB.
 func (a *Auth) unmarshalUser(p []byte) (turtleDB.Value, error) {
 	var u User
 
