@@ -10,12 +10,20 @@ import (
 	"github.com/Path94/turtleDB"
 )
 
-func newTempDB() (*Auth, func(), error) {
+func newTempDB(enc bool) (a *Auth, cleanup func(), err error) {
 	tmpPath, err := ioutil.TempDir("", "auth")
 	if err != nil {
 		return nil, nil, err
 	}
-	a, err := New(tmpPath)
+	if enc {
+		var (
+			iv  = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
+			key = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}
+		)
+		a, err = NewEncrypted(tmpPath, key, iv)
+	} else {
+		a, err = New(tmpPath)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -33,7 +41,7 @@ func TestMain(m *testing.M) {
 
 func TestIncID(t *testing.T) {
 	var (
-		a, cleanupFn, err = newTempDB()
+		a, cleanupFn, err = newTempDB(false)
 		id                string
 	)
 	if err != nil {
@@ -70,7 +78,17 @@ func TestIncID(t *testing.T) {
 }
 
 func TestCreateUser(t *testing.T) {
-	a, cleanupFn, err := newTempDB()
+	t.Run("Plain", func(t *testing.T) {
+		testCreateUser(t, false)
+	})
+
+	t.Run("Encrypted", func(t *testing.T) {
+		testCreateUser(t, true)
+	})
+}
+
+func testCreateUser(t *testing.T, enc bool) {
+	a, cleanupFn, err := newTempDB(enc)
 	if err != nil {
 		t.Fatal(err)
 	}
