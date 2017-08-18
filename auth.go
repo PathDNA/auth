@@ -5,6 +5,8 @@ import (
 	"math/big"
 	"sync/atomic"
 
+	"github.com/itsmontoya/middleware"
+
 	"github.com/Path94/turtleDB"
 )
 
@@ -24,16 +26,31 @@ type Auth struct {
 
 // New returns a new Auth db at the specificed path.
 func New(path string) (*Auth, error) {
-	var a Auth
-	funcMap := turtleDB.NewFuncsMap(turtleDB.MarshalJSON, turtleDB.UnmarshalJSON)
+	return NewEncrypted(path, nil, nil)
+}
+
+// NewEncrypted returns a new Auth db that is encrypted with the specified key/iv.
+// if key is nil, it returns a non-encrypted store.
+func NewEncrypted(path string, key, iv []byte) (*Auth, error) {
+	var (
+		a       Auth
+		funcMap = turtleDB.NewFuncsMap(turtleDB.MarshalJSON, turtleDB.UnmarshalJSON)
+		err     error
+	)
+
 	funcMap.Put("users", marshalUser, a.unmarshalUser)
 
-	t, err := turtleDB.New("auth", path, funcMap)
+	if key != nil {
+		a.t, err = turtleDB.New("auth", path, funcMap, middleware.NewCryptyMW(key, iv))
+	} else {
+		a.t, err = turtleDB.New("auth", path, funcMap)
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
-	if err = t.Update(func(tx turtleDB.Txn) error {
+	if err = a.t.Update(func(tx turtleDB.Txn) error {
 		for _, b := range buckets {
 			if _, err := tx.Create(b); err != nil {
 				return err
@@ -43,8 +60,6 @@ func New(path string) (*Auth, error) {
 	}); err != nil {
 		return nil, err
 	}
-
-	a.t = t
 
 	return &a, nil
 }
