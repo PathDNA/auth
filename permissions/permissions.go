@@ -12,6 +12,8 @@ const (
 	ErrInvalidPermissions = errors.Error("invalid permissions, please see constant block for reference")
 	// ErrPermissionsUnchanged is returned when matching permissions are set for a resource
 	ErrPermissionsUnchanged = errors.Error("permissions match, unchanged")
+
+	bucketName = "default"
 )
 
 const (
@@ -54,16 +56,16 @@ type Permissions struct {
 
 func (p *Permissions) get(txn turtleDB.Txn, id string) (rm resourceMap, err error) {
 	var (
-		b   turtleDB.Bucket
+		bkt turtleDB.Bucket
 		val turtleDB.Value
 		ok  bool
 	)
 
-	if b, err = txn.Get("default"); err != nil {
+	if bkt, err = txn.Get(bucketName); err != nil {
 		return
 	}
 
-	if val, err = b.Get(id); err != nil {
+	if val, err = bkt.Get(id); err != nil {
 		return
 	}
 
@@ -76,15 +78,13 @@ func (p *Permissions) get(txn turtleDB.Txn, id string) (rm resourceMap, err erro
 }
 
 func (p *Permissions) put(txn turtleDB.Txn, id string, rm resourceMap) (err error) {
-	var (
-		b turtleDB.Bucket
-	)
+	var bkt turtleDB.Bucket
 
-	if b, err = txn.Create("default"); err != nil {
+	if bkt, err = txn.Create(bucketName); err != nil {
 		return
 	}
 
-	if err = b.Put(id, rm); err != nil {
+	if err = bkt.Put(id, rm); err != nil {
 		return
 	}
 

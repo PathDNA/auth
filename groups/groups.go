@@ -12,6 +12,8 @@ const (
 	ErrGroupAlreadySet = errors.Error("cannot set group, group has already been set for this id")
 	// ErrGroupNotSet is returned when a group has been attempted to be removed, but doesn't belong for an id
 	ErrGroupNotSet = errors.Error("cannot remove group, group does not belong to this id")
+
+	bucketName = "default"
 )
 
 var gFuncsMap = turtleDB.NewFuncsMap(marshal, unmarshal)
@@ -34,16 +36,16 @@ type Groups struct {
 
 func (g *Groups) get(txn turtleDB.Txn, id string) (gm groupMap, err error) {
 	var (
-		b   turtleDB.Bucket
+		bkt turtleDB.Bucket
 		val turtleDB.Value
 		ok  bool
 	)
 
-	if b, err = txn.Get("default"); err != nil {
+	if bkt, err = txn.Get(bucketName); err != nil {
 		return
 	}
 
-	if val, err = b.Get(id); err != nil {
+	if val, err = bkt.Get(id); err != nil {
 		return
 	}
 
@@ -55,15 +57,13 @@ func (g *Groups) get(txn turtleDB.Txn, id string) (gm groupMap, err error) {
 	return
 }
 func (g *Groups) put(txn turtleDB.Txn, id string, gm groupMap) (err error) {
-	var (
-		b turtleDB.Bucket
-	)
+	var bkt turtleDB.Bucket
 
-	if b, err = txn.Create("default"); err != nil {
+	if bkt, err = txn.Create(bucketName); err != nil {
 		return
 	}
 
-	if err = b.Put(id, gm); err != nil {
+	if err = bkt.Put(id, gm); err != nil {
 		return
 	}
 
@@ -103,11 +103,10 @@ func (g *Groups) Has(id, group string) (has bool) {
 // Set will set a group to a given id
 func (g *Groups) Set(id string, groups ...string) (gs []string, err error) {
 	var (
-		gm   groupMap
-		errs errors.ErrorList
+		gm groupMap
 	)
 
-	errs.Push(g.db.Update(func(txn turtleDB.Txn) (err error) {
+	err = g.db.Update(func(txn turtleDB.Txn) (err error) {
 		if gm, err = g.get(txn, id); err != nil {
 			gm = make(groupMap)
 			err = nil
@@ -115,8 +114,7 @@ func (g *Groups) Set(id string, groups ...string) (gs []string, err error) {
 
 		for _, group := range groups {
 			if !gm.Set(group) {
-				errs.Push(ErrGroupAlreadySet)
-				err = nil
+				err = ErrGroupAlreadySet
 				return
 			}
 
@@ -126,9 +124,9 @@ func (g *Groups) Set(id string, groups ...string) (gs []string, err error) {
 		}
 
 		return
-	}))
+	})
 
-	return gm.Slice(), errs.Err()
+	return gm.Slice(), err
 }
 
 // Remove will remove a group from a given id
