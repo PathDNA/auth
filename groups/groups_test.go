@@ -30,8 +30,7 @@ func TestGroups(t *testing.T) {
 	}
 
 	if err = g.Close(); err != nil {
-		// @Josh this returns io.EOF
-		// t.Fatal(err)
+		t.Error(err)
 	}
 
 	if g, err = New("./_testdata"); err != nil {

@@ -38,8 +38,7 @@ func TestPermissions(t *testing.T) {
 	testPerms(p, t)
 
 	if err = p.Close(); err != nil {
-		// @Josh this returns io.EOF
-		// t.Fatal(err)
+		t.Error(err)
 	}
 
 	if p, err = New("./_testdata"); err != nil {
