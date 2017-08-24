@@ -97,6 +97,9 @@ func (p *Permissions) Get(id, group string) (permissions uint8) {
 
 	p.db.Read(func(txn turtleDB.Txn) (err error) {
 		if rm, err = p.get(txn, id); err != nil {
+			if err == turtleDB.ErrKeyDoesNotExist {
+				err = nil
+			}
 			return
 		}
 
@@ -116,6 +119,10 @@ func (p *Permissions) Set(id, group string, permissions uint8) (err error) {
 
 	return p.db.Update(func(txn turtleDB.Txn) (err error) {
 		if rm, err = p.get(txn, id); err != nil {
+			if err != turtleDB.ErrKeyDoesNotExist {
+				return
+			}
+
 			rm = make(resourceMap)
 			err = nil
 		}
@@ -138,6 +145,10 @@ func (p *Permissions) Can(id string, action uint8, groups ...string) (can bool) 
 
 	if err = p.db.Read(func(txn turtleDB.Txn) (err error) {
 		if rm, err = p.get(txn, id); err != nil {
+			if err == turtleDB.ErrKeyDoesNotExist {
+				err = nil
+			}
+
 			return
 		}
 

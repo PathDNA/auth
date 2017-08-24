@@ -75,6 +75,10 @@ func (g *Groups) Get(id string) (gs []string, err error) {
 	var gm groupMap
 	err = g.db.Read(func(txn turtleDB.Txn) (err error) {
 		if gm, err = g.get(txn, id); err != nil {
+			if err == turtleDB.ErrKeyDoesNotExist {
+				err = nil
+			}
+
 			return
 		}
 
@@ -90,6 +94,10 @@ func (g *Groups) Has(id, group string) (has bool) {
 	var gm groupMap
 	g.db.Read(func(txn turtleDB.Txn) (err error) {
 		if gm, err = g.get(txn, id); err != nil {
+			if err == turtleDB.ErrKeyDoesNotExist {
+				err = nil
+			}
+
 			return
 		}
 
@@ -108,6 +116,10 @@ func (g *Groups) Set(id string, groups ...string) (gs []string, err error) {
 
 	err = g.db.Update(func(txn turtleDB.Txn) (err error) {
 		if gm, err = g.get(txn, id); err != nil {
+			if err != turtleDB.ErrKeyDoesNotExist {
+				return
+			}
+
 			gm = make(groupMap)
 			err = nil
 		}
@@ -134,6 +146,10 @@ func (g *Groups) Remove(id, group string) (gs []string, err error) {
 	var gm groupMap
 	err = g.db.Update(func(txn turtleDB.Txn) (err error) {
 		if gm, err = g.get(txn, id); err != nil {
+			if err != turtleDB.ErrKeyDoesNotExist {
+				return
+			}
+
 			gm = make(groupMap)
 			err = nil
 		}
