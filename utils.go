@@ -76,7 +76,7 @@ func EditUserTx(tx turtleDB.Txn, id string, fn func(u *User) error) (err error) 
 	}
 
 	if oldUser != u.Username { // username change
-		if _, err := GetUserIDTx(tx, u.Username); err != nil {
+		if oid, _ := GetUserIDTx(tx, u.Username); oid != "" {
 			return ErrUserExists
 		}
 		loginsB.Delete(oldUser)

@@ -34,7 +34,7 @@ func TestUserAndProfile(t *testing.T) {
 
 	var p Profile
 
-	if _, err := UnmarshalUser(b, p); err != ErrProfileNotPtr {
+	if _, err = UnmarshalUser(b, p); err != ErrProfileNotPtr {
 		t.Fatalf("expected ErrProfileNotPtr, got %v", err)
 	}
 

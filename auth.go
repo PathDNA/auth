@@ -52,7 +52,7 @@ func NewEncrypted(path string, key, iv []byte) (*Auth, error) {
 
 	if err = a.t.Update(func(tx turtleDB.Txn) error {
 		for _, b := range buckets {
-			if _, err := tx.Create(b); err != nil {
+			if _, err = tx.Create(b); err != nil {
 				return err
 			}
 		}
