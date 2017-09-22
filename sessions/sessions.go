@@ -68,7 +68,7 @@ func (s *Sessions) New(uuid string) (token, key string) {
 	key = s.g.New().String()
 
 	s.mux.Update(func() {
-		s.m[token+"::"+key] = &ss
+		s.m[getMapKey(token, key)] = &ss
 	})
 
 	return
@@ -82,7 +82,8 @@ func (s *Sessions) Get(token, key string) (uuid string, err error) {
 	)
 
 	s.mux.Read(func() {
-		if ss, ok = s.m[token+"::"+key]; !ok {
+
+		if ss, ok = s.m[getMapKey(token, key)]; !ok {
 			err = ErrSessionDoesNotExist
 			return
 		}
@@ -103,4 +104,8 @@ func (s *Sessions) Close() (err error) {
 	}
 
 	return
+}
+
+func getMapKey(token, key string) (mapkey string) {
+	return token + "::" + key
 }
