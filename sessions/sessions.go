@@ -115,6 +115,7 @@ func (s *Sessions) load() (err error) {
 	if f, err = os.Open(filepath.Join(s.dir, snapshotName)); err != nil {
 		return
 	}
+	defer f.Close()
 
 	return json.NewDecoder(f).Decode(&s.m)
 }
@@ -128,6 +129,7 @@ func (s *Sessions) snapshot() (err error) {
 	if f, err = os.Create(filepath.Join(s.dir, snapshotName)); err != nil {
 		return
 	}
+	defer f.Close()
 
 	return json.NewEncoder(f).Encode(s.m)
 }
