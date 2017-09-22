@@ -1,6 +1,9 @@
 package sessions
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/Path94/atoms"
@@ -18,11 +21,19 @@ const (
 	SessionTimeout = 60 * 60 * 12 // 12 hours
 )
 
+const (
+	snapshotName = "sessions.db"
+)
+
 // New will return a new instance of sessions
-func New() *Sessions {
+func New(dir string) *Sessions {
 	var s Sessions
+	s.dir = dir
 	s.g = uuid.NewGen()
 	s.m = make(map[string]*session)
+	// Load from snapshot
+	s.load()
+	// Start purge loop
 	go s.loop()
 	return &s
 }
@@ -30,6 +41,8 @@ func New() *Sessions {
 // Sessions manages sessions
 type Sessions struct {
 	mux atoms.RWMux
+
+	dir string
 
 	g *uuid.Gen
 	m map[string]*session
@@ -49,7 +62,7 @@ func (s *Sessions) loop() {
 func (s *Sessions) Purge(oldest int64) {
 	s.mux.Update(func() {
 		for key, ss := range s.m {
-			if ss.lastAction.Load() < oldest {
+			if ss.LastAction.Load() < oldest {
 				delete(s.m, key)
 			}
 		}
@@ -59,7 +72,7 @@ func (s *Sessions) Purge(oldest int64) {
 // New will creata  new token/key pair
 func (s *Sessions) New(uuid string) (token, key string) {
 	var ss session
-	ss.uuid = uuid
+	ss.UUID = uuid
 	ss.setAction()
 
 	// Set token
@@ -89,12 +102,34 @@ func (s *Sessions) Get(token, key string) (uuid string, err error) {
 		}
 
 		// Set uuid as session uuid
-		uuid = ss.uuid
+		uuid = ss.UUID
 		// Set last action for session
 		ss.setAction()
 	})
 
 	return
+}
+
+func (s *Sessions) load() (err error) {
+	var f *os.File
+	if f, err = os.Open(filepath.Join(s.dir, snapshotName)); err != nil {
+		return
+	}
+
+	return json.NewDecoder(f).Decode(&s.m)
+}
+
+func (s *Sessions) snapshot() (err error) {
+	if err = os.MkdirAll(s.dir, 0744); err != nil {
+		return
+	}
+
+	var f *os.File
+	if f, err = os.Create(filepath.Join(s.dir, snapshotName)); err != nil {
+		return
+	}
+
+	return json.NewEncoder(f).Encode(s.m)
 }
 
 // Close will close an instance of Sessions
@@ -103,7 +138,7 @@ func (s *Sessions) Close() (err error) {
 		return errors.ErrIsClosed
 	}
 
-	return
+	return s.snapshot()
 }
 
 func getMapKey(token, key string) (mapkey string) {

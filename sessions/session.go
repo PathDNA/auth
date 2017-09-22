@@ -7,10 +7,11 @@ import (
 )
 
 type session struct {
-	uuid       string
-	lastAction atoms.Int64
+	UUID string `json:"uuid"`
+	// Last action taken for this session
+	LastAction atoms.Int64 `json:"lastAction"`
 }
 
 func (s *session) setAction() {
-	s.lastAction.Store(time.Now().Unix())
+	s.LastAction.Store(time.Now().Unix())
 }
