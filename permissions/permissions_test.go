@@ -12,6 +12,12 @@ const (
 	testErrCan    = errors.Error("group allowed to perform action they should not be able to")
 )
 
+const (
+	testUser1 = "TEST_USER_1"
+	testUser2 = "TEST_USER_2"
+	testUser3 = "TEST_USER_3"
+)
+
 func TestPermissions(t *testing.T) {
 	var (
 		p   *Permissions
@@ -23,19 +29,31 @@ func TestPermissions(t *testing.T) {
 	}
 	defer os.RemoveAll("./_testdata")
 
-	if err = p.Set("0", "users", PermissionRead); err != nil {
+	if err = p.SetPermissions("posts", "users", PermissionRead); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = p.Set("0", "admins", PermissionReadWrite); err != nil {
+	if err = p.SetPermissions("posts", "admins", PermissionReadWrite); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = p.Set("0", "writers", PermissionWrite); err != nil {
+	if err = p.SetPermissions("posts", "writers", PermissionWrite); err != nil {
 		t.Fatal(err)
 	}
 
-	testPerms(p, t)
+	if err = p.AddGroup(testUser1, "users"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = p.AddGroup(testUser2, "admins"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = p.AddGroup(testUser3, "writers"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Test here
 
 	if err = p.Close(); err != nil {
 		t.Error(err)
@@ -45,35 +63,31 @@ func TestPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testPerms(p, t)
+	// Test again
 }
 
 func testPerms(p *Permissions, t *testing.T) {
-	if p.Can("0", ActionWrite, "users") {
+	if !p.Can(testUser1, "posts", ActionRead) {
+		t.Fatal(testErrCannot)
+	}
+
+	if p.Can(testUser1, "posts", ActionWrite) {
 		t.Fatal(testErrCan)
 	}
 
-	if !p.Can("0", ActionWrite, "admins") {
+	if !p.Can(testUser2, "posts", ActionRead) {
 		t.Fatal(testErrCannot)
 	}
 
-	if !p.Can("0", ActionWrite, "writers") {
+	if !p.Can(testUser2, "posts", ActionWrite) {
 		t.Fatal(testErrCannot)
 	}
 
-	if !p.Can("0", ActionWrite, "users", "admins") {
-		t.Fatal(testErrCannot)
-	}
-
-	if !p.Can("0", ActionRead, "users") {
-		t.Fatal(testErrCannot)
-	}
-
-	if !p.Can("0", ActionRead, "admins") {
-		t.Fatal(testErrCannot)
-	}
-
-	if p.Can("0", ActionRead, "writers") {
+	if p.Can(testUser3, "posts", ActionRead) {
 		t.Fatal(testErrCan)
+	}
+
+	if !p.Can(testUser3, "posts", ActionWrite) {
+		t.Fatal(testErrCannot)
 	}
 }
