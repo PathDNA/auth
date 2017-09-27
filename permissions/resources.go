@@ -31,7 +31,7 @@ func (r resource) canRead(group string) bool {
 
 func (r resource) canWrite(group string) bool {
 	perm := r[group]
-	return perm == PermissionRead || perm == PermissionReadWrite
+	return perm == PermissionWrite || perm == PermissionReadWrite
 }
 
 func (r resource) Remove(group string) (ok bool) {
