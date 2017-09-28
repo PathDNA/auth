@@ -157,6 +157,29 @@ func (a *Auth) GetUserByName(username string) (u User, err error) {
 	return
 }
 
+// ForEach will iterate through each of the users
+func (a *Auth) ForEach(fn func(User) error) (err error) {
+	return a.t.Read(func(txn turtleDB.Txn) (err error) {
+		var bkt turtleDB.Bucket
+		if bkt, err = txn.Get("users"); err != nil {
+			return
+		}
+
+		return bkt.ForEach(func(key string, val turtleDB.Value) (err error) {
+			var (
+				u  User
+				ok bool
+			)
+
+			if u, ok = val.(User); !ok {
+				return turtleDB.ErrInvalidType
+			}
+
+			return fn(u)
+		})
+	})
+}
+
 // Close closes the underlying database.
 func (a *Auth) Close() error {
 	return a.t.Close()

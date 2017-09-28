@@ -137,6 +137,18 @@ func testCreateUser(t *testing.T, enc bool) {
 	if u.Profile != nu.Profile {
 		t.Fatalf("profile does not match: %v / %v", u.Profile, nu.Profile)
 	}
+
+	var ucnt int
+	if err = a.ForEach(func(u User) (err error) {
+		ucnt++
+		return
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if ucnt != 1 {
+		t.Fatalf("invalid user count, expected %v and received %v", 1, ucnt)
+	}
 }
 
 func isErr(t *testing.T, err error) bool {
