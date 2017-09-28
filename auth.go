@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math/big"
 	"sync/atomic"
+	"time"
 
 	"github.com/itsmontoya/middleware"
 
@@ -77,22 +78,23 @@ func (a *Auth) getProfileFn() func() interface{} {
 
 // CreateUser will add the passed user to the database and hash the given password.
 // the passed user will be modified with the hashed password and the new ID.
-func (a *Auth) CreateUser(u *User, password string) (id string, err error) {
-	if u.ID != "" {
-		err = ErrNewUserWithID
-		return
-	}
-
+func (a *Auth) CreateUser(username, password string) (id string, err error) {
+	var u User
 	// hash outside the db lock
 	if u.Password, err = HashPassword(password); err != nil {
 		return
 	}
 
+	u.Status = StatusInactive
+	u.Username = username
+	u.CreatedTS = time.Now().Unix()
+	u.LastUpdatedTS = u.CreatedTS
+
 	if err = u.Validate(); err != nil {
 		return
 	}
 
-	return u.ID, a.t.Update(func(tx turtleDB.Txn) error {
+	if err = a.t.Update(func(tx turtleDB.Txn) error {
 		var (
 			loginsB, _ = tx.Get("logins")
 			usersB, _  = tx.Get("users")
@@ -111,7 +113,12 @@ func (a *Auth) CreateUser(u *User, password string) (id string, err error) {
 		}
 
 		return loginsB.Put(u.Username, u.ID)
-	})
+	}); err != nil {
+		return
+	}
+
+	id = u.ID
+	return
 }
 
 // EditUserByID edits a user by their ID, returning an error will cancel the edit.
@@ -133,7 +140,7 @@ func (a *Auth) EditUserByName(username string, fn func(u *User) error) error {
 }
 
 // GetUserByID returns a User by their ID.
-func (a *Auth) GetUserByID(id string) (u *User, err error) {
+func (a *Auth) GetUserByID(id string) (u User, err error) {
 	err = a.t.Read(func(tx turtleDB.Txn) error {
 		u, err = GetUserByIDTx(tx, id)
 		return err
@@ -142,7 +149,7 @@ func (a *Auth) GetUserByID(id string) (u *User, err error) {
 }
 
 // GetUserByName returns a User by their UserName.
-func (a *Auth) GetUserByName(username string) (u *User, err error) {
+func (a *Auth) GetUserByName(username string) (u User, err error) {
 	err = a.t.Read(func(tx turtleDB.Txn) error {
 		u, err = GetUserByNameTx(tx, username)
 		return err
@@ -167,7 +174,7 @@ func (a *Auth) unmarshalUser(p []byte) (turtleDB.Value, error) {
 		return nil, err
 	}
 
-	return &u, nil
+	return u, nil
 }
 
 func (a *Auth) nextID(tx turtleDB.Txn, bucket string) (string, error) {

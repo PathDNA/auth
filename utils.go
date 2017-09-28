@@ -26,7 +26,7 @@ const (
 
 // marshalUser is used by turtle for marshaling users
 func marshalUser(v turtleDB.Value) ([]byte, error) {
-	u, ok := v.(*User)
+	u, ok := v.(User)
 	if !ok {
 		return nil, unexpectedTypeError(v)
 	}
@@ -55,19 +55,22 @@ func EditUserTx(tx turtleDB.Txn, id string, fn func(u *User) error) (err error) 
 	var (
 		usersB, _  = tx.Get("users")
 		loginsB, _ = tx.Get("logins")
-		u          *User
+
+		u User
 	)
+
 	if usersB == nil || loginsB == nil {
 		// this is a panic because if it happens, something is extremely wrong
 		log.Panic("database corruption, can't find bucket")
 	}
+
 	if u, err = GetUserByIDTx(tx, id); err != nil {
 		return
 	}
 
 	// allow changing username
 	oldUser := u.Username
-	if err = fn(u); err != nil {
+	if err = fn(&u); err != nil {
 		return
 	}
 
@@ -79,6 +82,7 @@ func EditUserTx(tx turtleDB.Txn, id string, fn func(u *User) error) (err error) 
 		if oid, _ := GetUserIDTx(tx, u.Username); oid != "" {
 			return ErrUserExists
 		}
+
 		loginsB.Delete(oldUser)
 		loginsB.Put(u.Username, u.ID)
 	}
@@ -87,33 +91,38 @@ func EditUserTx(tx turtleDB.Txn, id string, fn func(u *User) error) (err error) 
 }
 
 // GetUserByIDTx is a helper func for Auth.GetUserByID.
-func GetUserByIDTx(tx turtleDB.Txn, id string) (*User, error) {
+func GetUserByIDTx(tx turtleDB.Txn, id string) (usr User, err error) {
 	usersB, _ := tx.Get("users")
 	if usersB == nil {
 		// this is a panic because if it happens, something is extremely wrong
 		log.Panic("database corruption, can't find bucket")
 	}
-	v, err := usersB.Get(id)
-	if err != nil {
-		return nil, err
+
+	var v turtleDB.Value
+	if v, err = usersB.Get(id); err != nil {
+		return
 	}
 
 	switch v := v.(type) {
 	case nil:
-		return nil, ErrUserNotFound
-	case *User:
-		return v, nil
+		err = ErrUserNotFound
+		return
+	case User:
+		usr = v
+		return
 	default:
-		return nil, unexpectedTypeError(v)
+		err = unexpectedTypeError(v)
+		return
 	}
 }
 
 // GetUserByNameTx is a helper func for Auth.GetUserByName.
-func GetUserByNameTx(tx turtleDB.Txn, username string) (*User, error) {
-	id, err := GetUserIDTx(tx, username)
-	if err != nil {
-		return nil, err
+func GetUserByNameTx(tx turtleDB.Txn, username string) (usr User, err error) {
+	var id string
+	if id, err = GetUserIDTx(tx, username); err != nil {
+		return
 	}
+
 	return GetUserByIDTx(tx, id)
 }
 
