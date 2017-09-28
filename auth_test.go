@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"reflect"
 	"testing"
 
 	"github.com/Path94/turtleDB"
@@ -101,26 +100,55 @@ func testCreateUser(t *testing.T, enc bool) {
 		Username: "gbusters",
 		Password: "who are you gonna call",
 
-		Profile: &Profile{
+		Profile: Profile{
 			Name:  "Ghost Busters",
 			Phone: "1-800-555-2368",
 		},
 	}
 
-	id, err := a.CreateUser(u, u.Password)
+	id, err := a.CreateUser("gbusters", u.Password)
 	if isErr(t, err) { // using this because t.Fatal wouldn't run our clean up
 		return
 	}
 
-	nu, err := a.GetUserByID(u.ID)
+	a.EditUserByID(id, func(usr *User) (err error) {
+		usr.Status = StatusActive
+		usr.Profile = u.Profile
+		return
+	})
+
+	nu, err := a.GetUserByID(id)
 	if isErr(t, err) {
 		return
 	}
 
-	if !reflect.DeepEqual(u, nu) {
-		t.Errorf("u != nu\n%#+v\n%#+v", u, nu)
+	if u.Status != nu.Status {
+		t.Fatalf("status does not match: %v / %v", u.Status, nu.Status)
 	}
-	t.Logf("user (%s): %#+v", id, u)
+
+	if u.Username != nu.Username {
+		t.Fatalf("username does not match: %v / %v", u.Username, nu.Username)
+	}
+
+	if !nu.PasswordsMatch(u.Password) {
+		t.Fatalf("password does not match: %v", nu.Password)
+	}
+
+	if u.Profile != nu.Profile {
+		t.Fatalf("profile does not match: %v / %v", u.Profile, nu.Profile)
+	}
+
+	var ucnt int
+	if err = a.ForEach(func(u User) (err error) {
+		ucnt++
+		return
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if ucnt != 1 {
+		t.Fatalf("invalid user count, expected %v and received %v", 1, ucnt)
+	}
 }
 
 func isErr(t *testing.T, err error) bool {
