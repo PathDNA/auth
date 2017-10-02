@@ -249,6 +249,22 @@ func (p *Permissions) Can(uuid, id string, action uint8) (can bool) {
 	return
 }
 
+// Groups will return a slice of the groups a user belongs to
+func (p *Permissions) Groups(uuid string) (gs []string, err error) {
+	var g groups
+
+	err = p.db.Read(func(txn turtleDB.Txn) (err error) {
+		if g, err = p.getGroups(txn, uuid); err != nil {
+			return
+		}
+
+		gs = g.Slice()
+		return
+	})
+
+	return
+}
+
 // Close will close permissions
 func (p *Permissions) Close() (err error) {
 	return p.db.Close()
