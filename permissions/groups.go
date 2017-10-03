@@ -3,7 +3,7 @@ package permissions
 import (
 	"encoding/json"
 
-	"github.com/Path94/turtleDB"
+	"github.com/PathDNA/turtleDB"
 )
 
 type groups map[string]struct{}

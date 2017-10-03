@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Path94/auth"
+	"github.com/PathDNA/auth"
 	"github.com/missionMeteora/apiserv"
 )
 
