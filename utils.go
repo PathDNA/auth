@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/Path94/turtleDB"
+	"github.com/PathDNA/turtleDB"
 	"github.com/missionMeteora/toolkit/errors"
 )
 

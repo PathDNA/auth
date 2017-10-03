@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Path94/turtleDB"
+	"github.com/PathDNA/turtleDB"
 )
 
 func newTempDB(enc bool) (a *Auth, cleanup func(), err error) {

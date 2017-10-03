@@ -3,7 +3,7 @@ package sessions
 import (
 	"time"
 
-	"github.com/Path94/atoms"
+	"github.com/PathDNA/atoms"
 )
 
 type session struct {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/itsmontoya/middleware"
 
-	"github.com/Path94/turtleDB"
+	"github.com/PathDNA/turtleDB"
 )
 
 var (
