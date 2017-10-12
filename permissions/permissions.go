@@ -6,30 +6,29 @@ import (
 )
 
 const (
-	// ErrInvalidPermissions is returned when an invalid permissions value is attempted to be set
-	ErrInvalidPermissions = errors.Error("invalid permissions, please see constant block for reference")
+	// ErrInvalidActions is returned when an invalid permissions value is attempted to be set
+	ErrInvalidActions = errors.Error("invalid permissions, please see constant block for reference")
 	// ErrPermissionsUnchanged is returned when matching permissions are set for a resource
 	ErrPermissionsUnchanged = errors.Error("permissions match, unchanged")
 )
 
-const (
-	// PermissionNone represents a zero value, no permissions
-	PermissionNone uint8 = iota
-	// PermissionRead represents read-only permissions
-	PermissionRead
-	// PermissionWrite represents write-only permissions
-	PermissionWrite
-	// PermissionReadWrite represents read/write permissions
-	PermissionReadWrite
-)
+// Action represents an action type
+type Action uint8
+
+// Can will return if an action can peform an action request
+func (a Action) Can(ar Action) (can bool) {
+	return a&ar != 0
+}
 
 const (
 	// ActionNone represents a zero value, no action
-	ActionNone uint8 = iota
+	ActionNone Action = 1
 	// ActionRead represents a reading action
-	ActionRead
+	ActionRead = 2
 	// ActionWrite represents a writing action
-	ActionWrite
+	ActionWrite = 4
+	// ActionDelete represents a deleting action
+	ActionDelete = 8
 )
 
 const (
@@ -144,7 +143,7 @@ func (p *Permissions) putGroups(txn turtleDB.Txn, id string, g groups) (err erro
 }
 
 // Get will get the permissions for a given group for a resource id
-func (p *Permissions) Get(id, group string) (permissions uint8) {
+func (p *Permissions) Get(id, group string) (actions Action) {
 	var r resource
 	p.db.Read(func(txn turtleDB.Txn) (err error) {
 		if r, err = p.getResource(txn, id); err != nil {
@@ -154,7 +153,7 @@ func (p *Permissions) Get(id, group string) (permissions uint8) {
 			return
 		}
 
-		permissions, _ = r.Get(group)
+		actions, _ = r.Get(group)
 		return
 	})
 
@@ -162,10 +161,10 @@ func (p *Permissions) Get(id, group string) (permissions uint8) {
 }
 
 // SetPermissions will set the permissions for a given group for a resource id
-func (p *Permissions) SetPermissions(id, group string, permissions uint8) (err error) {
+func (p *Permissions) SetPermissions(id, group string, actions Action) (err error) {
 	var r resource
-	if !isValidPermissions(permissions) {
-		return ErrInvalidPermissions
+	if !isValidActions(actions) {
+		return ErrInvalidActions
 	}
 
 	return p.db.Update(func(txn turtleDB.Txn) (err error) {
@@ -180,7 +179,7 @@ func (p *Permissions) SetPermissions(id, group string, permissions uint8) (err e
 			r = r.Dup()
 		}
 
-		if !r.Set(group, permissions) {
+		if !r.Set(group, actions) {
 			return ErrPermissionsUnchanged
 		}
 
@@ -214,7 +213,7 @@ func (p *Permissions) AddGroup(uuid string, group string) (err error) {
 }
 
 // Can will return if a user (UUID) can perform a given action on a provided resource id
-func (p *Permissions) Can(uuid, id string, action uint8) (can bool) {
+func (p *Permissions) Can(uuid, id string, action Action) (can bool) {
 	var (
 		g   groups
 		r   resource
@@ -239,6 +238,9 @@ func (p *Permissions) Can(uuid, id string, action uint8) (can bool) {
 
 		case ActionWrite:
 			can = g.ForEach(r.canWrite)
+
+		case ActionDelete:
+			can = g.ForEach(r.canDelete)
 		}
 
 		return

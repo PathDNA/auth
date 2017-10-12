@@ -1,12 +1,7 @@
 package permissions
 
-func isValidPermissions(permissions uint8) bool {
-	switch permissions {
-	case PermissionNone:
-	case PermissionRead:
-	case PermissionWrite:
-	case PermissionReadWrite:
-	default:
+func isValidActions(actions Action) bool {
+	if actions > ActionRead+ActionWrite+ActionDelete {
 		return false
 	}
 
