@@ -29,15 +29,15 @@ func TestPermissions(t *testing.T) {
 	}
 	defer os.RemoveAll("./_testdata")
 
-	if err = p.SetPermissions("posts", "users", PermissionRead); err != nil {
+	if err = p.SetPermissions("posts", "users", ActionRead); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = p.SetPermissions("posts", "admins", PermissionReadWrite); err != nil {
+	if err = p.SetPermissions("posts", "admins", ActionRead|ActionWrite); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = p.SetPermissions("posts", "writers", PermissionWrite); err != nil {
+	if err = p.SetPermissions("posts", "writers", ActionWrite); err != nil {
 		t.Fatal(err)
 	}
 
@@ -53,7 +53,7 @@ func TestPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Test here
+	testPerms(p, t)
 
 	if err = p.Close(); err != nil {
 		t.Error(err)
@@ -63,7 +63,15 @@ func TestPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Test again
+	testPerms(p, t)
+
+	if err = p.SetPermissions("posts", "writers", ActionDelete); err != nil {
+		t.Fatal(err)
+	}
+
+	if !p.Can(testUser3, "posts", ActionDelete) {
+		t.Fatal(testErrCannot)
+	}
 }
 
 func testPerms(p *Permissions, t *testing.T) {
@@ -89,5 +97,9 @@ func testPerms(p *Permissions, t *testing.T) {
 
 	if !p.Can(testUser3, "posts", ActionWrite) {
 		t.Fatal(testErrCannot)
+	}
+
+	if p.Can(testUser3, "posts", ActionDelete) {
+		t.Fatal(testErrCan)
 	}
 }
