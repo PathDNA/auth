@@ -22,13 +22,13 @@ func (a Action) Can(ar Action) (can bool) {
 
 const (
 	// ActionNone represents a zero value, no action
-	ActionNone Action = 1
+	ActionNone Action = 1 << iota
 	// ActionRead represents a reading action
-	ActionRead = 2
+	ActionRead
 	// ActionWrite represents a writing action
-	ActionWrite = 4
+	ActionWrite
 	// ActionDelete represents a deleting action
-	ActionDelete = 8
+	ActionDelete
 )
 
 const (
