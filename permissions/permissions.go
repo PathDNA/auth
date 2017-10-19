@@ -189,7 +189,7 @@ func (p *Permissions) SetPermissions(id, group string, actions Action) (err erro
 }
 
 // AddGroup will add a group to a uuid
-func (p *Permissions) AddGroup(uuid string, group string) (err error) {
+func (p *Permissions) AddGroup(uuid string, grouplist ...string) (err error) {
 	var g groups
 	return p.db.Update(func(txn turtleDB.Txn) (err error) {
 		if g, err = p.getGroups(txn, uuid); err != nil {
@@ -203,7 +203,14 @@ func (p *Permissions) AddGroup(uuid string, group string) (err error) {
 			g = g.Dup()
 		}
 
-		if !g.Set(group) {
+		updated := false
+		for _, group := range grouplist {
+			if g.Set(group) {
+				updated = true
+			}
+		}
+
+		if !updated {
 			return ErrPermissionsUnchanged
 		}
 
