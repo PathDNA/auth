@@ -214,8 +214,32 @@ func (p *Permissions) AddGroup(uuid string, grouplist ...string) (err error) {
 			return ErrPermissionsUnchanged
 		}
 
-		err = p.putGroups(txn, uuid, g)
-		return
+		return p.putGroups(txn, uuid, g)
+	})
+}
+
+// RemoveGroup will remove a group to a uuid
+func (p *Permissions) RemoveGroup(uuid string, grouplist ...string) (err error) {
+	var g groups
+	return p.db.Update(func(txn turtleDB.Txn) (err error) {
+		if g, err = p.getGroups(txn, uuid); err != nil {
+			return ErrPermissionsUnchanged
+		}
+
+		g = g.Dup()
+		updated := false
+
+		for _, group := range grouplist {
+			if g.Remove(group) {
+				updated = true
+			}
+		}
+
+		if !updated {
+			return ErrPermissionsUnchanged
+		}
+
+		return p.putGroups(txn, uuid, g)
 	})
 }
 
@@ -254,6 +278,21 @@ func (p *Permissions) Can(uuid, id string, action Action) (can bool) {
 	}); err != nil {
 		return
 	}
+
+	return
+}
+
+// Has will return whether or not an ID has a particular group associated with it
+func (p *Permissions) Has(id, group string) (ok bool) {
+	var g groups
+	p.db.Read(func(txn turtleDB.Txn) (err error) {
+		if g, err = p.getGroups(txn, id); err != nil {
+			return
+		}
+
+		ok = g.Has(group)
+		return
+	})
 
 	return
 }
