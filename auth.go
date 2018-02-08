@@ -120,6 +120,10 @@ func (a *Auth) createUser(id string, username, password string) (uid string, err
 				return err
 			}
 		} else {
+			if err = a.setID(tx, "users", id); err != nil {
+				return err
+			}
+
 			u.ID = id
 		}
 
@@ -279,5 +283,5 @@ func (a *Auth) setID(tx turtleDB.Txn, bucket, id string) error {
 		return nil
 	}
 
-	return b.Put(bucket, sn.Add(sn, one).String())
+	return b.Put(bucket, sn.String())
 }
