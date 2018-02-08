@@ -86,6 +86,16 @@ func TestCreateUser(t *testing.T) {
 	})
 }
 
+func TestCreateUserWithID(t *testing.T) {
+	t.Run("Plain", func(t *testing.T) {
+		testCreateUserWithID(t, false)
+	})
+
+	t.Run("Encrypted", func(t *testing.T) {
+		testCreateUserWithID(t, true)
+	})
+}
+
 func testCreateUser(t *testing.T, enc bool) {
 	a, cleanupFn, err := newTempDB(enc)
 	if err != nil {
@@ -148,6 +158,80 @@ func testCreateUser(t *testing.T, enc bool) {
 
 	if ucnt != 1 {
 		t.Fatalf("invalid user count, expected %v and received %v", 1, ucnt)
+	}
+}
+
+func testCreateUserWithID(t *testing.T, enc bool) {
+	a, cleanupFn, err := newTempDB(enc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanupFn()
+
+	a.NewProfileFn(func() interface{} { return &Profile{} })
+	u := &User{
+		Status: StatusActive,
+
+		Username: "gbusters",
+		Password: "who are you gonna call",
+
+		Profile: Profile{
+			Name:  "Ghost Busters",
+			Phone: "1-800-555-2368",
+		},
+	}
+
+	id, err := a.CreateUserWithID("3", "gbusters", u.Password)
+	if isErr(t, err) { // using this because t.Fatal wouldn't run our clean up
+		return
+	}
+
+	a.EditUserByID(id, func(usr *User) (err error) {
+		usr.Status = StatusActive
+		usr.Profile = u.Profile
+		return
+	})
+
+	nu, err := a.GetUserByID(id)
+	if isErr(t, err) {
+		return
+	}
+
+	if u.Status != nu.Status {
+		t.Fatalf("status does not match: %v / %v", u.Status, nu.Status)
+	}
+
+	if u.Username != nu.Username {
+		t.Fatalf("username does not match: %v / %v", u.Username, nu.Username)
+	}
+
+	if !nu.PasswordsMatch(u.Password) {
+		t.Fatalf("password does not match: %v", nu.Password)
+	}
+
+	if u.Profile != nu.Profile {
+		t.Fatalf("profile does not match: %v / %v", u.Profile, nu.Profile)
+	}
+
+	var ucnt int
+	if err = a.ForEach(func(u User) (err error) {
+		ucnt++
+		return
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if ucnt != 1 {
+		t.Fatalf("invalid user count, expected %v and received %v", 1, ucnt)
+	}
+
+	id, err = a.CreateUser("NEW", "NEW")
+	if isErr(t, err) { // using this because t.Fatal wouldn't run our clean up
+		return
+	}
+
+	if id != "4" {
+		t.Fatalf("invalid id: expected %s and received %s", "4", id)
 	}
 }
 
