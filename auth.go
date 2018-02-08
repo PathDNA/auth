@@ -79,6 +79,17 @@ func (a *Auth) getProfileFn() func() interface{} {
 // CreateUser will add the passed user to the database and hash the given password.
 // the passed user will be modified with the hashed password and the new ID.
 func (a *Auth) CreateUser(username, password string) (id string, err error) {
+	return a.createUser("", username, password)
+}
+
+// CreateUserWithID will add the passed user to the database and hash the given password as the provided ID
+func (a *Auth) CreateUserWithID(id string, username, password string) (uid string, err error) {
+	return a.createUser(id, username, password)
+}
+
+// createUser will add the passed user to the database and hash the given password.
+// the passed user will be modified with the hashed password and the new ID.
+func (a *Auth) createUser(id string, username, password string) (uid string, err error) {
 	var u User
 	// hash outside the db lock
 	if u.Password, err = HashPassword(password); err != nil {
@@ -100,12 +111,16 @@ func (a *Auth) CreateUser(username, password string) (id string, err error) {
 			usersB, _  = tx.Get("users")
 		)
 
-		if id, _ := GetUserIDTx(tx, u.Username); id != "" {
-			return ErrUserExists
-		}
+		if len(id) == 0 {
+			if id, _ = GetUserIDTx(tx, u.Username); id != "" {
+				return ErrUserExists
+			}
 
-		if u.ID, err = a.nextID(tx, "users"); err != nil {
-			return err
+			if u.ID, err = a.nextID(tx, "users"); err != nil {
+				return err
+			}
+		} else {
+			u.ID = id
 		}
 
 		if err = usersB.Put(u.ID, u); err != nil {
@@ -117,7 +132,7 @@ func (a *Auth) CreateUser(username, password string) (id string, err error) {
 		return
 	}
 
-	id = u.ID
+	uid = u.ID
 	return
 }
 
@@ -229,4 +244,40 @@ func (a *Auth) nextID(tx turtleDB.Txn, bucket string) (string, error) {
 	}
 
 	return id, nil
+}
+
+func (a *Auth) setID(tx turtleDB.Txn, bucket, id string) error {
+	b, err := tx.Get("index")
+	if err != nil {
+		return err
+	}
+
+	v, err := b.Get(bucket)
+	if err != nil && err != turtleDB.ErrKeyDoesNotExist {
+		return err
+	}
+
+	n := big.NewInt(0)
+	switch v := v.(type) {
+	case nil:
+	case string:
+		if _, ok := n.SetString(v, 10); !ok {
+			return unexpectedTypeError(v)
+		}
+
+	default:
+		return unexpectedTypeError(v)
+	}
+
+	sn := big.NewInt(0)
+	if _, ok := sn.SetString(id, 10); !ok {
+		return unexpectedTypeError(id)
+	}
+
+	if n.Cmp(sn) == 1 {
+		// Current index is higher than provided
+		return nil
+	}
+
+	return b.Put(bucket, sn.Add(sn, one).String())
 }
